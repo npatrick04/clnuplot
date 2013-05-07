@@ -14,7 +14,7 @@ make-data-set has too much similarity
 
 (defvar *plot-default-host* "clnuplot")
 (defvar *plot-default-directory* "plots")
-(defvar *plot-ps2pdf-command* "/usr/local/bin/pstopdf")
+(defvar *plot-ps2pdf-command* "/usr/bin/ps2pdf")
 
 #+(or)
 (setf *plot-ps2pdf-command*  "/usr/bin/pstopdf")
@@ -68,13 +68,17 @@ set key {on|off} {default}
            (values plot)))
 
 
-(defun fullpath (plot)
+(defun fullpath (plot type)
   ;; FIXME
-  (asdf:system-relative-pathname 
-   (host plot)
-   (make-pathname :name (filename plot)
-                  :type "data"
-                  :directory (filepath plot))))
+  (apply #'fad:merge-pathnames-as-file
+;;         (host plot)
+         (append (let (path)
+                   (dolist (d (ensure-list (filepath plot)) path)
+                     (push (concatenate 'string
+                                        (string-right-trim "/\\" d)
+                                        "/")
+                           path)))
+                 (list (concatenate 'string (filename plot) type)))))
 
 (defclass* gnuplot (plot-abstract)
   ((filename "plot" ia)
@@ -100,13 +104,13 @@ set key {on|off} {default}
 (defmethod labelsp (plot)
   ;; taking two sec. to figure out CL-CONTAINERS would probably ease this pain...
   (let ((sample-data-point
-	(first-element
-	 (contents (data (first-element (data-sets plot)))))))
+	(first-item
+	 (contents (data (first-item (data-sets plot)))))))
     (if (> (length sample-data-point) 3)
 	t)))
 
 (defmethod write-plot ((plot gnuplot) (style (eql :gnuplot)))
-  (let ((pathname (fullpath plot))
+  (let ((pathname (fullpath plot ".gpl"))
         (first? t))
     (with-new-file (out pathname)
       (when (comment plot)
@@ -142,13 +146,13 @@ set key {on|off} {default}
     pathname))
 
 (defmethod write-plot ((plot gnuplot) (style (eql :postscript)))
-  (with-new-file (out (fullpath plot))
+  (with-new-file (out (fullpath plot ".ps"))
     (format out "set term push~C" #\Linefeed)
     (format out "set term postscript color~C" #\Linefeed)
     (format out "set output '~A.ps'~C" (filename plot) #\Linefeed))
   (let ((*file-if-exists* :append))
     (write-plot plot :gnuplot)
-    (with-new-file (out (fullpath plot))
+    (with-new-file (out (fullpath plot ".ps"))
       (format out "set output~C" #\Linefeed)
       (format out "~Cset term pop~C" #\Linefeed #\Linefeed)
       (format out "!~A ~A.ps~C~C"

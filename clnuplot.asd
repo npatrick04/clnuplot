@@ -37,5 +37,6 @@ DISCUSSION
   :depends-on (:cl-containers 
 	       :cl-mathstats 
 	       :metabang-bind
-	       :trivial-shell))
+	       :trivial-shell
+               :cl-fad))
 
